@@ -1,0 +1,8 @@
+language: python
+
+before_script:
+    - bash tools/rst2pdf/install.sh
+
+script:
+    - bash tools/rst2pdf/generate-pdfs.sh pdfs
+
