@@ -973,10 +973,6 @@ process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
 
-The address space consists of one or more disjoint regions. Regions
-must not span address zero (although one region may start at zero).
-
-
 Footnotes
 =========
 
