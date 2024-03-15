@@ -1083,6 +1083,78 @@ refer to the fields of a TPIDR2 block at address BLK.
 See `Changes to the TPIDR2 block`_ for additional requirements relating
 to the TPIDR2 block.
 
+Categories of memory
+^^^^^^^^^^^^^^^^^^^^
+
+The memory of a process can normally be classified into five categories:
+
+- Code (the program being executed), which must be readable, but need not be writable, by the process.
+
+- Read-only static data.
+
+- Writable static data.
+
+- The heap.
+
+- Stacks, with one stack for each thread.
+
+Each category of memory can contain multiple individual regions.
+These individual regions do not need to be contiguous and regions of one
+memory class can be interspersed with regions of another memory class.
+
+Writable static data may be further sub-divided into initialized, zero-initialized, and uninitialized data.
+
+The heap is an area (or areas) of memory that the process manages itself (for example, with the C malloc function). It is typically used to create dynamic data objects.
+
+Each individual stack must occupy a single, contiguous region of memory.
+However, as noted above, multiple stacks do not need to be organized
+contiguously.
+
+A process must always have access to code and stacks, and it may have
+access to any of the other categories of memory.
+
+A conforming program must only execute instructions that are in areas of memory designated to contain code.
+
+The Stack
+^^^^^^^^^
+
+Each thread has a stack. This stack is a contiguous area of memory that the
+thread may use for storage of local variables and for passing additional
+arguments to subroutines when there are insufficient argument registers
+available.
+
+The stack is defined in terms of three values:
+
+* a base
+
+* a limit
+
+* the current stack extent, stored in the special-purpose register SP
+
+The SP moves from the base to the limit as the stack grows, and from the
+limit to the base as the stack shrinks. In practice, an application might
+not be able to determine the value of either the base or the limit.
+
+In the description below, the base, limit, and current stack extent
+for a thread T are denoted T.base, T.limit, and T.SP respectively.
+
+The stack implementation is full-descending, so that for each thread T:
+
+* T.limit < T.base and the stack occupies the area of memory delimited
+  by the half-open internal [T.limit, T.base).
+
+* The active region of T's stack is the area of memory delimited
+  by the half-open interval [T.SP, T.base). The active region is empty
+  when T.SP is equal to T.base.
+
+* The inactive region of T's stack is the area of memory denoted
+  by the half-open interval [T.limit, T.SP). The inactive region is empty
+  when T.SP is equal to T.limit.
+
+The stack may have a fixed size or be dynamically extendable (by adjusting the stack-limit downwards).
+
+The rules for maintenance of the stack are divided into two parts: a set of constraints that must be observed at all times, and an additional constraint that must be observed at a public interface.
+
 
 Footnotes
 =========
