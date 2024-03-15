@@ -972,11 +972,6 @@ its threads' register states and by the contents of the memory that the
 process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
-Memory and the Stack
---------------------
-
-Memory addresses
-^^^^^^^^^^^^^^^^
 
 The address space consists of one or more disjoint regions. Regions
 must not span address zero (although one region may start at zero).
