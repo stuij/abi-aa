@@ -574,6 +574,356 @@ Fundamental Data Types
   +------------------------+---------------------------------------+------------+---------------------------+-----------------------------------------------+
 
 
+Half-precision Floating Point
+-----------------------------
+
+The architecture provides hardware support for half-precision values. Three formats are currently supported:
+
+1. half-precision format specified in IEEE 754-2008
+
+2. Arm Alternative format, which provides additional range but has no NaNs or Infinities.
+
+3. Brain floating-point format, which provides a dynamic range similar to the 32-bit floating-point format, but with less precision.
+
+The first two formats are mutually exclusive. The base standard of the AAPCS specifies use of the IEEE 754-2008 variant, and a procedure call variant that uses the Arm Alternative format is permitted.
+
+Decimal Floating Point
+----------------------
+
+The AAPCS permits use of Decimal Floating Point numbers encoded using
+the BID format as specified in IEEE 754-2008.  Unless explicitly noted
+elsewhere, Decimal floating-point objects should be treated in exactly
+the same way as (binary) Floating Point objects for the purposes of
+structure layout, parameter passing, and result return.
+
+.. note:: There is no support in the AArch64 ISA for Decimal Floating
+	  Point, so all operations must be emulated in software.
+
+Short Vectors
+-------------
+
+A short vector is a machine type that is composed of repeated instances of one fundamental integral or floating-point type. It may be 8 or 16 bytes in total size. A short vector has a base type that is the fundamental integral or floating-point type from which it is composed, but its alignment is always the same as its total size. The number of elements in the short vector is always such that the type is fully packed. For example, an 8-byte short vector may contain 8 unsigned byte elements, 4 unsigned half-word elements, 2 single-precision floating-point elements, or any other combination where the product of the number of elements and the size of an individual element is equal to 8. Similarly, for 16-byte short vectors the product of the number of elements and the size of the individual elements must be 16.
+
+Elements in a short vector are numbered such that the lowest numbered element (element 0) occupies the lowest numbered bit (bit zero) in the vector and successive elements take on progressively increasing bit positions in the vector. When a short vector transferred between registers and memory it is treated as an opaque object. That is a short vector is stored in memory as if it were stored with a single STR of the entire register; a short vector is loaded from memory using the corresponding LDR instruction. On a little-endian system this means that element 0         will always contain the lowest addressed element of a short vector; on a big-endian system element 0 will contain the highest-addressed element of a short vector.
+
+A language binding may define extended types that map directly onto short vectors. Short vectors are not otherwise created spontaneously (for example because a user has declared an aggregate consisting of eight consecutive byte-sized objects).
+
+Scalable Vectors
+----------------
+
+.. _`Scalable Vector`:
+
+Like a short vector (see `Short Vectors`_), a scalable vector is a
+machine type that is composed of repeated instances of one fundamental
+integral or floating-point type. The number of bytes in the vector is
+always VG×8, where VG is a runtime value determined by the execution
+environment. VG is an even integer greater than or equal to 2; the ABI
+does not define an upper bound. VG is the same for all scalable vector
+types and scalable predicate types.
+
+Each element of a scalable vector has a zero-based index. When stored
+in memory, the elements are placed in index order, so that element *N*
+comes before element *N*\ +1. The layout of each individual element
+is the same as if it were scalar. When stored in a scalable vector
+register, the least significant bit of element 0 occupies bit 0
+of the corresponding short vector register. Note that the layout of the
+vector in a scalable vector register does not depend on whether the
+system is big- or little-endian.
+
+Scalable Predicates
+-------------------
+
+A scalable predicate is a machine type that is composed of individual bits.
+The number of bits in the predicate is always VG×8, where VG is the same
+value as for scalable vector types (see `Scalable Vectors`_). The number
+of bits in a scalable predicate is therefore equal to the number of bytes
+in a scalable vector.
+
+Each bit of a scalable predicate has a zero-based index. When stored in
+memory, index 0 is placed in the least significant bit of the first byte,
+index 1 is stored in the next significant bit, and so on.
+
+Pointers
+--------
+
+Code and data pointers are either 64-bit or 32-bit unsigned types [#aapcs64-f4]_. A NULL pointer is always represented by all-bits-zero.
+
+All 64 bits in a 64-bit pointer are always significant. When tagged addressing is enabled, a tag is part of a pointer’s value for the purposes of pointer arithmetic. The result of subtracting or comparing two pointers with different tags is unspecified. See also `Memory addresses`_, below. A 32-bit pointer does not support tagged addressing.
+
+.. note::
+
+    **(Beta)**
+
+    The A64 load and store instructions always use the full 64-bit base register and perform a 64-bit address calculation. Care must be taken within ILP32 to ensure that the upper 32 bits of a base register are zero and 32-bit register offsets are sign-extended to 64 bits (immediate offsets are implicitly extended).
+
+
+Byte order ("Endianness")
+-------------------------
+
+From a software perspective, memory is an array of bytes, each of which is addressable. This ABI supports two views of memory implemented by the underlying hardware.
+
+- In a little-endian view of memory the least significant byte of a data object is at the lowest byte address the data object occupies in memory.
+
+- In a big-endian view of memory the least significant byte of a data object is at the highest byte address the data object occupies in memory.
+
+The least significant bit in an object is always designated as bit 0.
+
+The mapping of a word-sized data object to memory is shown in the following figures. All objects are pure-endian, so the mappings may be scaled accordingly for larger or smaller objects [#aapcs64-f5]_.
+
+.. figure:: aapcs64-bigendian.svg
+    :scale: 50%
+
+    Memory layout of big-endian data object
+
+.. figure:: aapcs64-littleendian.svg
+    :scale: 50%
+
+    Memory layout of little-endian data object
+
+
+Composite Types
+---------------
+
+A Composite Type is a collection of one or more Fundamental Data Types that are handled as a single entity at the procedure call level. A Composite Type can be any of:
+
+- An aggregate, where the members are laid out sequentially in memory (possibly with inter-member padding).
+
+- A union, where each of the members has the same address.
+
+- An array, which is a repeated sequence of some other type (its base type).
+
+The definitions are recursive; that is, each of the types may contain a Composite Type as a member.
+
+*  The *member alignment* of an element of a composite type is the
+   alignment of that member after the application of any language alignment
+   modifiers to that member
+
+*  The *natural alignment* of a composite type is the maximum of
+   each of the member alignments of the 'top-level' members of the composite
+   type i.e. before any alignment adjustment of the entire composite is
+   applied
+
+.. _`aggregate`:
+
+Aggregates
+^^^^^^^^^^
+
+- The alignment of an aggregate shall be the alignment of its most-aligned member.
+
+- The size of an aggregate shall be the smallest multiple of its alignment that is sufficient to hold all of its members.
+
+Unions
+^^^^^^
+
+- The alignment of a union shall be the alignment of its most-aligned member.
+
+- The size of a union shall be the smallest multiple of its alignment that is sufficient to hold its largest member.
+
+Arrays
+^^^^^^
+
+- The alignment of an array shall be the alignment of its base type.
+
+- The size of an array shall be the size of the base type multiplied by the number of elements in the array.
+
+Bit-fields subdivision
+^^^^^^^^^^^^^^^^^^^^^^
+
+A member of an aggregate that is a Fundamental Data Type may be subdivided into bit-fields; if there are unused portions of such a member that are sufficient to start the following member at its Natural Alignment then the following member may use the unallocated portion. For the purposes of calculating the alignment of the aggregate the type of the member shall be the Fundamental Data Type upon which the bit-field is based [#aapcs64-f6]_. The layout of bit-fields within an aggregate is defined by the appropriate language binding (see `Arm C and C++ Language Mappings`_).
+
+Homogeneous Aggregates
+^^^^^^^^^^^^^^^^^^^^^^
+
+A Homogeneous Aggregate is a composite type where all of the Fundamental Data Types of the members that compose the type are the same. The test for homogeneity is applied after data layout is completed and without regard to access control or other source language restrictions. Note that for short-vector types the fundamental types are 64-bit vector and 128-bit vector; the type of the elements in the short vector does not form part of the test for homogeneity.
+
+A Homogeneous Aggregate has a Base Type, which is the Fundamental Data Type of each Member. The overall size is the size of the Base Type multiplied by the number uniquely addressable Members; its alignment will be the alignment of the Base Type.
+
+Homogeneous Floating-point Aggregates (HFA)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A Homogeneous Floating-point Aggregate (HFA) is a Homogeneous Aggregate with a Fundamental Data Type that is a Floating-Point type and at most four uniquely addressable members.
+
+Homogeneous Short-Vector Aggregates (HVA)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A Homogeneous Short-Vector Aggregate (HVA) is a Homogeneous Aggregate with a Fundamental Data Type that is a Short-Vector type and at most four uniquely addressable members.
+
+Pure Scalable Types (PSTs)
+--------------------------
+
+A type is a Pure Scalable Type if (recursively) it is:
+
+* a Scalable Vector Type;
+
+* a Scalable Predicate Type;
+
+* an array that contains a constant (nonzero) number of elements and whose
+  Base Type is a Pure Scalable Type; or
+
+* an aggregate in which every member is a Pure Scalable Type.
+
+As with Homogeneous Aggregates, these rules apply after data layout is
+completed and without regard to access control or other source language
+restrictions. However, there are several notable differences from
+Homogeneous Aggregates:
+
+* A Pure Scalable Type may contain a mixture of different Fundamental
+  Data Types. For example, an aggregate that contains a scalable vector
+  of 8-bit elements, a scalable predicate, and a scalable vector of
+  16-bit elements is a Pure Scalable Type.
+
+* Alignment and padding do not play a role when determining whether
+  something is a Pure Scalable Type. (In fact, a Pure Scalable Type
+  that contains both predicate types and vector types will often contain
+  padding.)
+
+* Pure Scalable Types are never unions and never contain unions.
+
+.. note:: Composite Types have at least one member and the type of each
+          member is either a Fundamental Data Type or another Composite Type.
+          Since all Fundamental Data Types have nonzero size, it follows
+          that all members of a Composite Type have nonzero size.
+
+          Any language-level members that have zero size must therefore
+          disappear in the language-to-ABI mapping and do not affect
+          whether the containing type is a Pure Scalable Type.
+
+.. raw:: pdf
+
+   PageBreak
+
+The Base Procedure Call Standard
+================================
+
+The base standard defines a machine-level calling standard for the A64 instruction set. It assumes the availability of the vector registers for passing floating-point and SIMD arguments. Application code is expected to conform to one of three data models defined in this standard; ILP32, LP64 or LLP64.
+
+Machine Registers
+-----------------
+
+The Arm 64-bit architecture defines two mandatory register banks: a general-purpose register bank which can be used for scalar integer processing and pointer arithmetic; and a SIMD and Floating-Point register bank. In addition, the architecture defines an optional set of scalable vector registers that overlap the SIMD and Floating-Point register bank, accompanied by a set of scalable predicate registers.
+
+General-purpose Registers
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are thirty-one, 64-bit, general-purpose (integer) registers visible to the A64 instruction set; these are labeled r0-r30. In a 64-bit context these registers are normally referred to using the names x0-x30; in a 32-bit context the registers are specified by using w0-w30. Additionally, a stack-pointer register, SP, can be used with a restricted number of instructions. Register names may appear in assembly language in either upper case or lower case. In this specification upper case is used when the register has a fixed role in this procedure call standard. `Table 2`_, General-purpose registers and AAPCS64 usage summarizes the uses of the general-purpose registers in this standard. In addition to the general-purpose registers there is one status register (NZCV) that may be set and  read by conforming code.
+
+.. _Table 2:
+
+.. class:: aapcs64-table-2
+
+.. table:: Table 2, General-purpose registers and AAPCS64 usage
+
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | Register  | Special  | Role in the procedure call standard                                                                                                                 |
+   +===========+==========+=====================================================================================================================================================+
+   | SP        |          | The Stack Pointer.                                                                                                                                  |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r30       | LR       | The Link Register.                                                                                                                                  |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r29       | FP       | The Frame Pointer                                                                                                                                   |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r19…r28   |          | Callee-saved registers                                                                                                                              |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r18       |          | The Platform Register, if needed; otherwise a temporary register. See notes.                                                                        |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r17       | IP1      | The second intra-procedure-call temporary register (can be used by call veneers and PLT code); at other times may be used as a temporary register.  |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r16       | IP0      | The first intra-procedure-call scratch register (can be used by call veneers and PLT code); at other times may be used as a temporary register.     |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r9…r15    |          | Temporary registers                                                                                                                                 |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r8        |          | Indirect result location register                                                                                                                   |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+   | r0…r7     |          | Parameter/result registers                                                                                                                          |
+   +-----------+----------+-----------------------------------------------------------------------------------------------------------------------------------------------------+
+
+
+The first eight registers, r0-r7, are used to pass argument values into a subroutine and to return result values from a function. They may also be used to hold intermediate values within a routine (but, in general, only between subroutine calls).
+
+Registers r16 (IP0) and r17 (IP1) may be used by a linker as a scratch register between a routine and any subroutine it calls (for details, see `Use of IP0 and IP1 by the linker`_). They can also be used within a routine to hold intermediate values between subroutine calls.
+
+The role of register r18 is platform specific. If a platform ABI has need of a dedicated general-purpose register to carry inter-procedural state (for example, the thread context) then it should use this register for that purpose. If the platform ABI has no such requirements, then it should use r18 as an additional temporary register. The platform ABI specification must document the usage for this register.
+
+.. note::
+
+    Software developers creating platform-independent code are advised to avoid using r18 if at all possible. Most compilers provide a mechanism to prevent specific registers from being used for general allocation; portable hand-coded assembler should avoid it entirely. It should not be assumed that treating the register as callee-saved will be sufficient to satisfy the requirements of the platform. Virtualization code must, of course, treat the register as they would any other resource provided to the virtual machine.
+
+A subroutine invocation must preserve the contents of the registers r19-r29 and SP. All 64 bits of each value stored in r19-r29 must be preserved, even when using the ILP32 data model **(Beta)**.
+
+In all variants of the procedure call standard, registers r16, r17, r29 and r30 have special roles. In these roles they are labeled IP0, IP1, FP and LR when being used for holding addresses (that is, the special name implies accessing the register as a 64-bit entity).
+
+.. note::
+
+    The special register names (IP0, IP1, FP and LR) should be used only in the context in which they are special. It is recommended that disassemblers always use the architectural names for the registers.
+
+The NZCV register is a global condition flag register with the following properties:
+
+- The N, Z, C and V flags are undefined on entry to and return from a public interface.
+
+SIMD and Floating-Point registers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Arm 64-bit architecture also has a further thirty-two registers, v0-v31, which can be used by SIMD and Floating-Point operations. The precise name of the register will change indicating the size of the access.
+
+.. note::
+
+    Unlike in AArch32, in AArch64 the 128-bit and 64-bit views of a SIMD and Floating-Point register do not overlap multiple registers in a narrower view, so q1, d1 and s1 all refer to the same entry in the register bank.
+
+The first eight registers, v0-v7, are used to pass argument values into a subroutine and to return result values from a function. They may also be used to hold intermediate values within a routine (but, in general, only between subroutine calls).
+
+Registers v8-v15 must be preserved by a callee across subroutine calls; the remaining registers (v0-v7, v16-v31) do not need to be preserved (or should be preserved by the caller). Additionally, only the bottom 64 bits of each value stored in v8-v15 need to be preserved [#aapcs64-f7]_; it is the responsibility of the caller to preserve larger values.
+
+The FPSR is a status register that holds the cumulative exception bits of the floating-point unit. It contains the fields IDC, IXC, UFC, OFC, DZC, IOC and QC. These fields are not preserved across a public interface and may have any value on entry to a subroutine.
+
+The FPCR is used to control the behavior of the floating-point unit. It is a global register with the following properties.
+
+- The exception-control bits (8-12), rounding mode bits (22-23), flush-to-zero bits (24), and the AH and FIZ bits (0-1) may be modified by calls to specific support functions that affect the global state of the application.
+
+- The NEP bit (bit 2) must be zero on entry to and return from a public interface.
+
+- All other bits are reserved and must not be modified. It is not defined whether the bits read as zero or one, or whether they are preserved across a public interface.
+
+Decimal Floating-Point emulation code requires additional control bits
+which cannot be stored in the FPCR.  Since the information must be
+held for each thread of execution, the state must be held in
+thread-local storage on platforms where multi-threaded code is
+supported.  The exact location of such information is platform
+specific.
+
+Scalable vector registers
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Arm 64-bit architecture also defines an optional set of thirty-two
+scalable vector registers, z0-z31. Each register extends the
+corresponding SIMD and Floating-Point register so that it can hold the
+contents of a single Scalable Vector Type (see `Scalable vectors`_).
+That is, scalable vector register z0 is an extension of SIMD and
+Floating-Point register v0.
+
+z0-z7 are used to pass scalable vector arguments to a subroutine, and to
+return scalable vector results from a function. If a subroutine takes
+at least one argument in scalable vector registers or scalable predicate
+registers, or if it is a function that returns results in such registers,
+it must ensure that the entire contents of z8-z23 are preserved across
+the call. In other cases it need only preserve the low 64 bits of z8-z15,
+as described in `SIMD and Floating-Point registers`_.
+
+Scalable Predicate Registers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Arm 64-bit architecture defines an optional set of sixteen scalable
+predicate registers p0-p15. These registers are available if and only if
+the scalable vector registers are available (see `Scalable vector registers`_).
+Each register can store the contents of a Scalable Predicate Type
+(see `Scalable Predicates`_).
+
+p0-p3 are used to pass scalable predicate arguments to a subroutine and
+to return scalable predicate results from a function. If a subroutine takes
+at least one argument in scalable vector registers or scalable predicate
+registers, or if it is a function that returns results in such registers,
+it must ensure that p4-p15 are preserved across the call. In other cases
+it need not preserve any scalable predicate register contents.
+
 
 Footnotes
 =========
