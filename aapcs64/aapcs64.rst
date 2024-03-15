@@ -981,12 +981,6 @@ Memory addresses
 The address space consists of one or more disjoint regions. Regions
 must not span address zero (although one region may start at zero).
 
-The use of tagged addressing is platform specific and does not apply to
-32-bit pointers. When tagged addressing is disabled, all 64 bits of an
-address are passed to the translation system. When tagged addressing is
-enabled, the top eight bits of an address are ignored for the purposes
-of address translation. See also `Pointers`_, above.
-
 
 Footnotes
 =========
