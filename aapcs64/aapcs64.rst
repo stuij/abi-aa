@@ -972,7 +972,9 @@ its threads' register states and by the contents of the memory that the
 process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
-The address space consists of one or more disjoint regions.
+The address space consists of one or more disjoint regions. Regions
+must not span address zero
+
 
 Footnotes
 =========
