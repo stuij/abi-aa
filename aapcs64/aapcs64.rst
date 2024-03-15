@@ -972,53 +972,6 @@ its threads' register states and by the contents of the memory that the
 process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
-Memory and the Stack
---------------------
-
-Memory addresses
-^^^^^^^^^^^^^^^^
-
-The address space consists of one or more disjoint regions. Regions
-must not span address zero (although one region may start at zero).
-
-The use of tagged addressing is platform specific and does not apply to
-32-bit pointers. When tagged addressing is disabled, all 64 bits of an
-address are passed to the translation system. When tagged addressing is
-enabled, the top eight bits of an address are ignored for the purposes
-of address translation. See also `Pointers`_, above.
-
-Properties of a thread
-^^^^^^^^^^^^^^^^^^^^^^
-
-**(Beta)**
-
-The AAPCS64 classifies `threads`_ as follows, with the classification being
-invariant for the lifetime of a given thread:
-
-.. _`access to SME`:
-
-The thread “has access” or “does not have access” to SME
-   If the thread has access to SME, the platform should generally allow
-   the thread to make full use of SME instructions.  However, the platform
-   may forbid the use of SME in certain platform-defined contexts.
-
-   If the thread does not have access to SME, the platform must forestall
-   all attempts to use SME instructions.
-
-.. _`access to TPIDR2_EL0`:
-
-The thread “has access” or “does not have access” to TPIDR2_EL0
-   If the thread has access to TPIDR2_EL0, the platform must allow
-   the thread to read or write TPIDR2_EL0 at any time.
-
-   If the thread does not have access to TPIDR2_EL0, the platform must
-   forestall all attempts to read or write TPIDR2_EL0.
-
-If the thread has access to SME then it must also have access to TPIDR2_EL0.
-
-The |__arm_sme_state|_ function provides a simple way of determining whether
-the current thread has access to SME or TPIDR2_EL0.
-
 
 Footnotes
 =========
