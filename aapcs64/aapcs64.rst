@@ -924,6 +924,294 @@ registers, or if it is a function that returns results in such registers,
 it must ensure that p4-p15 are preserved across the call. In other cases
 it need not preserve any scalable predicate register contents.
 
+SME state
+---------
+
+**(Beta)**
+
+`SME`_ defines the following pieces of processor state:
+
+ZA storage
+   a storage array of size `SVL.B`_ × `SVL.B`_ bytes, hereafter referred to
+   simply as “ZA”
+
+_`PSTATE.SM`
+   indicates whether the processor is in “streaming mode” (PSTATE.SM==1) or
+   “non-streaming mode” (PSTATE.SM==0)
+
+_`PSTATE.ZA`
+   indicates whether ZA might have useful contents (PSTATE.ZA==1) or
+   whether it definitely does not (PSTATE.ZA==0)
+
+TPIDR2_EL0
+   a system register that software can use to manage thread-local state
+
+   See `TPIDR2_EL0`_ for a description of how the AAPCS64 uses this register.
+
+Threads and processes
+---------------------
+
+.. _`threads`:
+
+The AAPCS64 applies to a single _`thread` of execution.  Each thread is in
+turn part of a _`process`.  A process might contain one thread or several
+threads.
+
+The exact definitions of the terms “thread” and “process” depend on the
+platform. For example, if the platform is a traditional multi-threaded
+operating system, the terms generally have their usual meaning for
+that operating system. If the platform supports multiple processes
+but has no separate concept of threads, each process will have a single
+thread of execution. If a platform has no concurrency or preemption
+then there will be a single thread and process that executes all
+instructions.
+
+Each thread has its own register state, defined by the contents of the
+underlying machine registers. A process has a program state defined by
+its threads' register states and by the contents of the memory that the
+process can access. The memory that a process can access, without causing
+a run-time fault, may vary during the execution of its threads.
+
+Memory and the Stack
+--------------------
+
+Memory addresses
+^^^^^^^^^^^^^^^^
+
+The address space consists of one or more disjoint regions. Regions
+must not span address zero (although one region may start at zero).
+
+The use of tagged addressing is platform specific and does not apply to
+32-bit pointers. When tagged addressing is disabled, all 64 bits of an
+address are passed to the translation system. When tagged addressing is
+enabled, the top eight bits of an address are ignored for the purposes
+of address translation. See also `Pointers`_, above.
+
+Properties of a thread
+^^^^^^^^^^^^^^^^^^^^^^
+
+**(Beta)**
+
+The AAPCS64 classifies `threads`_ as follows, with the classification being
+invariant for the lifetime of a given thread:
+
+.. _`access to SME`:
+
+The thread “has access” or “does not have access” to SME
+   If the thread has access to SME, the platform should generally allow
+   the thread to make full use of SME instructions.  However, the platform
+   may forbid the use of SME in certain platform-defined contexts.
+
+   If the thread does not have access to SME, the platform must forestall
+   all attempts to use SME instructions.
+
+.. _`access to TPIDR2_EL0`:
+
+The thread “has access” or “does not have access” to TPIDR2_EL0
+   If the thread has access to TPIDR2_EL0, the platform must allow
+   the thread to read or write TPIDR2_EL0 at any time.
+
+   If the thread does not have access to TPIDR2_EL0, the platform must
+   forestall all attempts to read or write TPIDR2_EL0.
+
+If the thread has access to SME then it must also have access to TPIDR2_EL0.
+
+The |__arm_sme_state|_ function provides a simple way of determining whether
+the current thread has access to SME or TPIDR2_EL0.
+
+TPIDR2_EL0
+^^^^^^^^^^
+
+**(Beta)**
+
+This section only applies to threads that have `access to TPIDR2_EL0`_.
+
+Conforming software must ensure that, all times during the execution
+of a thread, TPIDR2_EL0 is in one of two states:
+
+* TPIDR2_EL0 is null.
+
+* TPIDR2_EL0 points to a “TPIDR2 block” with the format below, and the
+  thread has read access to every byte of the block.
+
+A _`TPIDR2 block` has the following format:
+
++--------------+---------------------+-------------------------------+
+| Byte offset  | Type                | Referred to in the AAPCS64 as |
++==============+=====================+===============================+
+| 0-7          | 64-bit data pointer | ``za_save_buffer``            |
++--------------+---------------------+-------------------------------+
+| 8-9          | Unsigned halfword   | ``num_za_save_slices``        |
++--------------+---------------------+-------------------------------+
+| 10-15        | Reserved, must be zero                              |
++--------------+-----------------------------------------------------+
+
+Note that the field names are just a notational convenience.  Language
+bindings may choose different names.
+
+The reserved parts of the block are defined to be zero by this revision
+of the AAPCS64.  All nonzero values are reserved for use by future revisions
+of the AAPCS64.
+
+.. _`reserved bytes in the TPIDR2 block`:
+.. _`handle future extensions safely or abort`:
+
+If TPIDR2_EL0 is nonnull and if any reserved byte in the first 16 bytes
+of the TPIDR2 block has a nonzero value, the thread must do one of the
+following:
+
+* leave TPIDR2_EL0 unchanged;
+
+* abort in some platform-defined manner; or
+
+* handle the nonzero reserved bytes of the TPIDR2 block in accordance
+  with future versions of the AAPCS64.
+
+Byte offsets of 16 and greater are reserved for use by future revisions
+of the AAPCS64.
+
+Negative offsets from TPIDR2_EL0 are reserved for use by the platform.
+The block of data stored at negative offsets is therefore referred to as the
+“platform TPIDR2 block”; this block starts at a platform-defined offset
+from TPIDR2_EL0 and ends at TPIDR2_EL0.
+
+In the rest of this document, ``za_save_buffer`` and ``num_za_save_slices``
+(without qualification) refer to the fields of a TPIDR2 block at address
+TPIDR2_EL0.  ``BLK.za_save_buffer`` and ``BLK.num_za_save_slices`` instead
+refer to the fields of a TPIDR2 block at address BLK.
+
+See `Changes to the TPIDR2 block`_ for additional requirements relating
+to the TPIDR2 block.
+
+Categories of memory
+^^^^^^^^^^^^^^^^^^^^
+
+The memory of a process can normally be classified into five categories:
+
+- Code (the program being executed), which must be readable, but need not be writable, by the process.
+
+- Read-only static data.
+
+- Writable static data.
+
+- The heap.
+
+- Stacks, with one stack for each thread.
+
+Each category of memory can contain multiple individual regions.
+These individual regions do not need to be contiguous and regions of one
+memory class can be interspersed with regions of another memory class.
+
+Writable static data may be further sub-divided into initialized, zero-initialized, and uninitialized data.
+
+The heap is an area (or areas) of memory that the process manages itself (for example, with the C malloc function). It is typically used to create dynamic data objects.
+
+Each individual stack must occupy a single, contiguous region of memory.
+However, as noted above, multiple stacks do not need to be organized
+contiguously.
+
+A process must always have access to code and stacks, and it may have
+access to any of the other categories of memory.
+
+A conforming program must only execute instructions that are in areas of memory designated to contain code.
+
+The Stack
+^^^^^^^^^
+
+Each thread has a stack. This stack is a contiguous area of memory that the
+thread may use for storage of local variables and for passing additional
+arguments to subroutines when there are insufficient argument registers
+available.
+
+The stack is defined in terms of three values:
+
+* a base
+
+* a limit
+
+* the current stack extent, stored in the special-purpose register SP
+
+The SP moves from the base to the limit as the stack grows, and from the
+limit to the base as the stack shrinks. In practice, an application might
+not be able to determine the value of either the base or the limit.
+
+In the description below, the base, limit, and current stack extent
+for a thread T are denoted T.base, T.limit, and T.SP respectively.
+
+The stack implementation is full-descending, so that for each thread T:
+
+* T.limit < T.base and the stack occupies the area of memory delimited
+  by the half-open internal [T.limit, T.base).
+
+* The active region of T's stack is the area of memory delimited
+  by the half-open interval [T.SP, T.base). The active region is empty
+  when T.SP is equal to T.base.
+
+* The inactive region of T's stack is the area of memory denoted
+  by the half-open interval [T.limit, T.SP). The inactive region is empty
+  when T.SP is equal to T.limit.
+
+The stack may have a fixed size or be dynamically extendable (by adjusting the stack-limit downwards).
+
+The rules for maintenance of the stack are divided into two parts: a set of constraints that must be observed at all times, and an additional constraint that must be observed at a public interface.
+
+Universal stack constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+At all times during the execution of a thread T, the following basic
+constraints must hold for its stack S:
+
+- T.limit ≤ T.SP ≤ T.base. T's stack pointer must lie within the extent
+  of the memory occupied by S.
+
+- No thread is permitted to access (for reading or for writing) the
+  inactive region of S.
+
+- If MTE is enabled, then the tag stored in T.SP must match the tag set
+  on the inactive region of S.
+
+Additionally, at any point at which memory is accessed via SP, the hardware requires that
+
+- SP mod 16 = 0.  The stack must be quad-word aligned.
+
+Stack constraints at a public interface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The stack must also conform to the following constraint at a public interface:
+
+- SP mod 16 = 0. The stack must be quad-word aligned.
+
+The Frame Pointer
+^^^^^^^^^^^^^^^^^
+
+Conforming code shall construct a linked list of stack-frames. Each frame shall link to the frame of its caller by means of a frame record of two 64-bit values on the stack (independent of the data model). The frame record for the innermost frame (belonging to the most recent routine invocation) shall be pointed to by the frame pointer register (FP). The lowest addressed double-word shall point to the previous frame record and the highest addressed double-word shall contain the value passed in LR on entry to the current function. If code uses the pointer signing extension to sign return addresses, the value in LR must be signed before storing it in the frame record. The end of the frame record chain is indicated by the address zero in the address for the previous frame. The location of the frame record within a stack frame is not specified.
+
+.. note:: There will always be a short period during construction or destruction of each frame record during which the frame pointer will point to the caller’s record.
+
+A platform shall mandate the minimum level of conformance with respect to the maintenance of frame records. The options are, in decreasing level of functionality:
+
+- It may require the frame pointer to address a valid frame record at all times, except that small subroutines which do not modify the link register may elect not to create a frame record
+
+- It may require the frame pointer to address a valid frame record at all times, except that any subroutine may elect not to create a frame record
+
+- It may permit the frame pointer register to be used as a general-purpose callee-saved register, but provide a platform-specific mechanism for external agents to reliably detect this condition
+
+- It may elect not to maintain a frame chain and to use the frame pointer register as a general-purpose callee-saved register.
+
+Subroutine calls
+----------------
+
+The A64 instruction set contains primitive subroutine call instructions, BL and BLR, which performs a branch-with-link operation. The effect of executing BL is to transfer the sequentially next value of the program counter—the return address—into the link register (LR) and the destination address into the program counter.  The effect of executing BLR is similar except that the new PC value is read from the specified register.
+
+Use of IP0 and IP1 by the linker
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The A64 branch instructions are unable to reach every destination in the address space, so it may be necessary for the linker to insert a veneer between a calling routine and a called subroutine. Veneers may also be needed to support dynamic linking. Any veneer inserted must preserve the contents of all registers except IP0, IP1 (r16, r17) and the condition code flags; a conforming program must assume that a veneer that alters IP0 and/or IP1 may be inserted at any branch instruction that is exposed to a relocation that supports long branches.
+
+.. note::
+
+    R\_AARCH64\_CALL26, and R\_AARCH64\_JUMP26 are the ELF relocation types with this property.
+
 
 Footnotes
 =========
