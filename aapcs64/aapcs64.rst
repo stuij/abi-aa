@@ -972,6 +972,29 @@ its threads' register states and by the contents of the memory that the
 process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
+Memory and the Stack
+--------------------
+
+Memory addresses
+^^^^^^^^^^^^^^^^
+
+The address space consists of one or more disjoint regions. Regions
+must not span address zero (although one region may start at zero).
+
+The use of tagged addressing is platform specific and does not apply to
+32-bit pointers. When tagged addressing is disabled, all 64 bits of an
+address are passed to the translation system. When tagged addressing is
+enabled, the top eight bits of an address are ignored for the purposes
+of address translation. See also `Pointers`_, above.
+
+Properties of a thread
+^^^^^^^^^^^^^^^^^^^^^^
+
+**(Beta)**
+
+The AAPCS64 classifies `threads`_ as follows, with the classification being
+invariant for the lifetime of a given thread:
+
 
 Footnotes
 =========
