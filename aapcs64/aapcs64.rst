@@ -972,13 +972,7 @@ its threads' register states and by the contents of the memory that the
 process can access. The memory that a process can access, without causing
 a run-time fault, may vary during the execution of its threads.
 
-p0-p3 are used to pass scalable predicate arguments to a subroutine and
-to return scalable predicate results from a function. If a subroutine takes
-at least one argument in scalable vector registers or scalable predicate
-registers, or if it is a function that returns results in such registers,
-it must ensure that p4-p15 are preserved across the call. In other cases
-it need not preserve any scalable predicate register contents.
-
+The address space consists of one or more disjoint regions.
 
 Footnotes
 =========
