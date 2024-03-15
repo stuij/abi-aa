@@ -987,14 +987,6 @@ address are passed to the translation system. When tagged addressing is
 enabled, the top eight bits of an address are ignored for the purposes
 of address translation. See also `Pointers`_, above.
 
-Properties of a thread
-^^^^^^^^^^^^^^^^^^^^^^
-
-**(Beta)**
-
-The AAPCS64 classifies `threads`_ as follows, with the classification being
-invariant for the lifetime of a given thread:
-
 
 Footnotes
 =========
